@@ -46,7 +46,8 @@ class WelcomeView(discord.ui.View):
         except Exception as e:
             print(f"Error updating message: {e}")
 
-    @discord.ui.button(label="דיסקליימר", style=discord.ButtonStyle.secondary, custom_id="persistent_view:disclaimer")
+    # row=0 מציב בשורה הראשונה
+    @discord.ui.button(label="דיסקליימר", style=discord.ButtonStyle.primary, custom_id="persistent_view:disclaimer", row=0)
     async def disclaimer_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
             "**אהלן כולם** 👋\n\n"
@@ -58,7 +59,7 @@ class WelcomeView(discord.ui.View):
             "כל משתתפ/ת מסכימ/ה שלא לבצע השקעה הקשורה בפרסומים כאן, ואם החליט/ה לבצע - זו אחריותו/ה הבלעדית."
         )
         
-        confirm_view = discord.ui.View(timeout=60) # טיימאאוט קצר רק לכפתור האישור הזמני
+        confirm_view = discord.ui.View(timeout=60) 
         confirm_btn = discord.ui.Button(label="הבנתי", style=discord.ButtonStyle.success)
         
         async def confirm_callback(itn):
@@ -68,7 +69,8 @@ class WelcomeView(discord.ui.View):
         confirm_view.add_item(confirm_btn)
         await interaction.response.edit_message(content=content, view=confirm_view)
 
-    @discord.ui.button(label="מה זה פה?", style=discord.ButtonStyle.secondary, custom_id="persistent_view:what_is")
+    # row=1 מציב בשורה השנייה
+    @discord.ui.button(label="מה זה פה?", style=discord.ButtonStyle.primary, custom_id="persistent_view:what_is", row=1)
     async def what_is_this(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
             "**מה זה פה?**\n"
@@ -78,7 +80,8 @@ class WelcomeView(discord.ui.View):
         )
         await self.update_message(interaction, content)
 
-    @discord.ui.button(label="חשוב לדעת", style=discord.ButtonStyle.secondary, custom_id="persistent_view:important")
+    # row=2 מציב בשורה השלישית
+    @discord.ui.button(label="חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="persistent_view:important", row=2)
     async def important_info(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
             "**לתשומת לבכם** ❗\n\n"
@@ -95,7 +98,8 @@ class WelcomeView(discord.ui.View):
         temp_view.add_item(thanks_btn)
         await interaction.response.edit_message(content=content, view=temp_view)
 
-    @discord.ui.button(label="רמות יומיות ועדכונים", style=discord.ButtonStyle.secondary, custom_id="persistent_view:levels")
+    # row=3 מציב בשורה הרביעית
+    @discord.ui.button(label="רמות יומיות ועדכונים", style=discord.ButtonStyle.primary, custom_id="persistent_view:levels", row=3)
     async def levels_updates(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
             "**רמות יומיות ועדכונים** 📈\n\n"
