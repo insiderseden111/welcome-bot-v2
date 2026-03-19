@@ -2,12 +2,30 @@ import discord
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
+from flask import Flask
+from threading import Thread
 
-# טעינת המשתנים מקובץ ה-.env (עבור VS Code)
+# --- הגדרת שרת אינטרנט פנימי לשמירה על הבוט ער (עבור UptimeRobot) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive!"
+
+def run():
+    # השרת רץ על פורט 8080 כברירת מחדל עבור שירותי Web
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# ------------------------------------------------------------------
+
+# טעינת המשתנים מקובץ ה-.env
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# הגדרות הרשאות (Intents)
+# הגדרות הרשאות (Intents) - ודאי שהפעלת אותן גם ב-Discord Developer Portal
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -39,6 +57,7 @@ class WelcomeView(discord.ui.View):
         confirm_btn = discord.ui.Button(label="הבנתי", style=discord.ButtonStyle.secondary)
         
         async def confirm_callback(itn):
+            # חוזר לתצוגה הראשית לאחר האישור
             await itn.response.edit_message(content="אישרת את הדיסקליימר. ברוך הבא לקהילה! ✅", view=self)
 
         confirm_btn.callback = confirm_callback
@@ -51,7 +70,7 @@ class WelcomeView(discord.ui.View):
             "**מה זה פה?**\n"
             "כאן אנחנו מסבירים בקצרה על מהות הקהילה ואיך הכל עובד.\n\n"
             "צפו בסרטון ההסבר הבא מיוטיוב:\n"
-            "https://www.youtube.com/watch?v=YOUR_VIDEO_ID" # <--- שמי כאן את הלינק שלך
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # מומלץ לעדכן לקישור שלך
         )
         await self.update_message(interaction, content)
 
@@ -86,7 +105,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
-    # רישום ה-View כך שיהיה פעיל תמיד, גם אחרי הפעלה מחדש
+    # רישום ה-View ב-on_ready הכרחי עבור custom_id ו-Persistent Views
     bot.add_view(WelcomeView())
     print(f'הבוט {bot.user} עלה לאוויר ומחובר בהצלחה!')
 
@@ -98,6 +117,7 @@ async def setup(ctx):
 
 # הרצת הבוט
 if TOKEN:
+    keep_alive() # מפעיל את שרת ה-Flask ברקע
     bot.run(TOKEN)
 else:
     print("שגיאה: לא נמצא טוקן בקובץ ה-.env או בהגדרות Render!")
