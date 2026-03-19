@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- הגדרת שרת אינטרנט פנימי לשמירה על הבוט ער (עבור UptimeRobot) ---
+# --- הגדרת שרת אינטרנט פנימי עבור Render / UptimeRobot ---
 app = Flask('')
 
 @app.route('/')
@@ -13,33 +13,38 @@ def home():
     return "I'm alive!"
 
 def run():
-    # השרת רץ על פורט 8080 כברירת מחדל עבור שירותי Web
+    # Render מחייב האזנה ל-0.0.0.0 בפורט 8080
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
     t = Thread(target=run)
     t.start()
+    print("System: Flask web server started on port 8080.")
+
 # ------------------------------------------------------------------
 
 # טעינת המשתנים מקובץ ה-.env
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# הגדרות הרשאות (Intents) - ודאי שהפעלת אותן גם ב-Discord Developer Portal
+# הגדרות הרשאות (Intents) - קריטי להפעיל ב-Developer Portal
 intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+intents.message_content = True  # מאפשר לבוט לקרוא את פקודת ה-!setup
+intents.members = True          # מאפשר לבוט לזהות כניסת משתמשים
 
-# יצירת מחלקת ה-View עבור הכפתורים
+# יצירת מחלקת ה-View עבור הכפתורים (Persistent View)
 class WelcomeView(discord.ui.View):
     def __init__(self):
-        # timeout=None בשילוב עם bot.add_view גורם לכפתורים לעבוד לנצח
+        # timeout=None בשילוב עם bot.add_view גורם לכפתורים לעבוד גם אחרי ריסטארט
         super().__init__(timeout=None)
 
     async def update_message(self, interaction, content, view=None):
-        if view is None:
-            view = self
-        await interaction.response.edit_message(content=content, view=view)
+        try:
+            if view is None:
+                view = self
+            await interaction.response.edit_message(content=content, view=view)
+        except Exception as e:
+            print(f"Error updating message: {e}")
 
     @discord.ui.button(label="דיסקליימר", style=discord.ButtonStyle.secondary, custom_id="persistent_view:disclaimer")
     async def disclaimer_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -53,11 +58,10 @@ class WelcomeView(discord.ui.View):
             "כל משתתפ/ת מסכימ/ה שלא לבצע השקעה הקשורה בפרסומים כאן, ואם החליט/ה לבצע - זו אחריותו/ה הבלעדית."
         )
         
-        confirm_view = discord.ui.View()
-        confirm_btn = discord.ui.Button(label="הבנתי", style=discord.ButtonStyle.secondary)
+        confirm_view = discord.ui.View(timeout=60) # טיימאאוט קצר רק לכפתור האישור הזמני
+        confirm_btn = discord.ui.Button(label="הבנתי", style=discord.ButtonStyle.success)
         
         async def confirm_callback(itn):
-            # חוזר לתצוגה הראשית לאחר האישור
             await itn.response.edit_message(content="אישרת את הדיסקליימר. ברוך הבא לקהילה! ✅", view=self)
 
         confirm_btn.callback = confirm_callback
@@ -70,7 +74,7 @@ class WelcomeView(discord.ui.View):
             "**מה זה פה?**\n"
             "כאן אנחנו מסבירים בקצרה על מהות הקהילה ואיך הכל עובד.\n\n"
             "צפו בסרטון ההסבר הבא מיוטיוב:\n"
-            "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # מומלץ לעדכן לקישור שלך
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         )
         await self.update_message(interaction, content)
 
@@ -81,8 +85,8 @@ class WelcomeView(discord.ui.View):
             "אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע עבורכם.\n\n"
             "אם פנו אליכם בפרטי עם הצעה כספית - **מדובר במתחזה** ויש לדווח על כך מיד! 📢"
         )
-        temp_view = discord.ui.View()
-        thanks_btn = discord.ui.Button(label="הבנתי תודה!", style=discord.ButtonStyle.secondary)
+        temp_view = discord.ui.View(timeout=60)
+        thanks_btn = discord.ui.Button(label="הבנתי תודה!", style=discord.ButtonStyle.primary)
         
         async def thanks_callback(itn):
             await itn.response.edit_message(content="תודה על תשומת הלב. השתמשו בכפתורים כדי להמשיך.", view=self)
@@ -105,19 +109,19 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
-    # רישום ה-View ב-on_ready הכרחי עבור custom_id ו-Persistent Views
+    # רישום ה-View ב-on_ready הכרחי כדי שהכפתורים ימשיכו לעבוד אחרי נפילת שרת
     bot.add_view(WelcomeView())
-    print(f'הבוט {bot.user} עלה לאוויר ומחובר בהצלחה!')
+    print(f'System: {bot.user} is online and connected to Discord gateway.')
 
 @bot.command()
+@commands.has_permissions(administrator=True) # רק מנהל יכול להריץ את ה-setup
 async def setup(ctx):
-    # פקודה להצבת התפריט בערוץ
     welcome_msg = "ברוך הבא לקהילה שלנו! 🚀\nאנא קראו את המידע בכפתורים למטה כדי להתחיל."
     await ctx.send(welcome_msg, view=WelcomeView())
 
 # הרצת הבוט
 if TOKEN:
-    keep_alive() # מפעיל את שרת ה-Flask ברקע
+    keep_alive() # מפעיל את שרת ה-Flask ברקע עבור UptimeRobot
     bot.run(TOKEN)
 else:
-    print("שגיאה: לא נמצא טוקן בקובץ ה-.env או בהגדרות Render!")
+    print("Error: DISCORD_TOKEN not found. Check your .env or Render Environment Variables.")
