@@ -18,8 +18,8 @@ def keep_alive():
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# הגדרת ה-ID של ערוץ המנהלים לקבלת דיווחים (החליפי במספר ה-ID שלך)
-ADMIN_CHANNEL_ID = 123456789012345678 
+# ה-ID שסיפקת עבור ערוץ דיווחי מנהלים
+ADMIN_CHANNEL_ID = 1484206445128974479 
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -50,12 +50,12 @@ class WelcomeView(discord.ui.View):
         confirm_btn = discord.ui.Button(label="הבנתי ✅", style=discord.ButtonStyle.success, custom_id="p_confirm_disclaimer")
         
         async def confirm_callback(itn):
-            # שליחת הודעה לערוץ מנהלים
+            # דיווח אוטומטי לערוץ המנהלים שהגדרת
             admin_channel = self.bot.get_channel(ADMIN_CHANNEL_ID)
             if admin_channel:
                 await admin_channel.send(f"✅ המשתמש **{itn.user}** (ID: {itn.user.id}) אישר את הדיסקליימר.")
             
-            # לוג ב-Render
+            # הדפסה ליומן השרת ב-Render לגיבוי
             print(f"ADMIN LOG: User {itn.user} confirmed.")
             await itn.response.edit_message(content="אישרת את הדיסקליימר. ברוך הבא לקהילה! ✅", view=self)
 
@@ -99,13 +99,14 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
+    # רישום ה-View כדי שהכפתורים יעבדו תמיד
     bot.add_view(WelcomeView(bot))
     print(f'System: {bot.user} is online.')
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    # קישור לתמונת הרובוט שהעלית
+    # תמונת הרובוט המעודכנת עם לוגו INSIDERS
     image_url = "https://i.ibb.co/v4m86fP/robot-insiders.png" 
     
     embed = discord.Embed(
