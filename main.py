@@ -18,7 +18,7 @@ def keep_alive():
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# ה-ID שסיפקת עבור ערוץ דיווחי מנהלים
+# ה-ID של ערוץ דיווחי המנהלים שלך
 ADMIN_CHANNEL_ID = 1484206445128974479 
 
 intents = discord.Intents.default()
@@ -34,7 +34,6 @@ class WelcomeView(discord.ui.View):
         if view is None: view = self
         await interaction.response.edit_message(content=content, view=view)
 
-    # 1. דיסקליימר - row=0
     @discord.ui.button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="p_disclaimer", row=0)
     async def disclaimer_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
@@ -50,20 +49,15 @@ class WelcomeView(discord.ui.View):
         confirm_btn = discord.ui.Button(label="הבנתי ✅", style=discord.ButtonStyle.success, custom_id="p_confirm_disclaimer")
         
         async def confirm_callback(itn):
-            # דיווח אוטומטי לערוץ המנהלים שהגדרת
             admin_channel = self.bot.get_channel(ADMIN_CHANNEL_ID)
             if admin_channel:
                 await admin_channel.send(f"✅ המשתמש **{itn.user}** (ID: {itn.user.id}) אישר את הדיסקליימר.")
-            
-            # הדפסה ליומן השרת ב-Render לגיבוי
-            print(f"ADMIN LOG: User {itn.user} confirmed.")
             await itn.response.edit_message(content="אישרת את הדיסקליימר. ברוך הבא לקהילה! ✅", view=self)
 
         confirm_btn.callback = confirm_callback
         confirm_view.add_item(confirm_btn)
         await interaction.response.edit_message(content=content, view=confirm_view)
 
-    # 2. מה זה פה - row=1
     @discord.ui.button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="p_whatis", row=1)
     async def what_is_this(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
@@ -74,24 +68,21 @@ class WelcomeView(discord.ui.View):
         )
         await self.update_message(interaction, content)
 
-    # 3. חשוב לדעת - row=2
     @discord.ui.button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="p_important", row=2)
     async def important_info(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
             "⚠️ **לתשומת לבכם**\n\n"
             "אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע ו/או שאנחנו נשקיע עבורכם.\n\n"
-            "לצערנו קרו בעבר מקרים בהם נוכלים פתחו משתמשים עם תמונות ושמות דומים לשלנו והציעו כל מיני דברים לחברים חדשים.\n\n"
-            "לכן, אם פונים אליכם בפרטי עם הצעה - **מדובר במתחזה** ויש לדווח על המשתמש שפנה אליכם ועל ההודעה מיד!"
+            "לצערנו קרו בעבר מקרים בהם נוכלים פתחו משתמשים עם תמונות ושמות דומים לשלנו. "
+            "אם פונים אליכם בפרטי עם הצעה - **מדובר במתחזה** ויש לדווח עליו מיד!"
         )
         await self.update_message(interaction, content)
 
-    # 4. רמות יומיות ועדכונים - row=3
     @discord.ui.button(label="📊 רמות יומיות ועדכונים", style=discord.ButtonStyle.primary, custom_id="p_levels", row=3)
     async def levels_updates(self, interaction: discord.Interaction, button: discord.ui.Button):
         content = (
             "📈 **רמות יומיות ועדכונים שוטפים מהשוק**\n\n"
-            "כאן יפורסמו רמות עבודה, ניתוחים טכניים ועדכונים חמים על מניות ומדדים בזמן אמת.\n"
-            "מומלץ לעקוב אחרי הערוץ ולוודא שהתראות פעילות!"
+            "כאן יפורסמו רמות עבודה, ניתוחים טכניים ועדכונים חמים על מניות ומדדים בזמן אמת."
         )
         await self.update_message(interaction, content)
 
@@ -99,19 +90,22 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
-    # רישום ה-View כדי שהכפתורים יעבדו תמיד
     bot.add_view(WelcomeView(bot))
     print(f'System: {bot.user} is online.')
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    # תמונת הרובוט המעודכנת עם לוגו INSIDERS
+    # מחיקת הודעת ה-!setup של המשתמש כדי למנוע כפילות בערוץ
+    try:
+        await ctx.message.delete()
+    except:
+        pass
+
     image_url = "https://i.ibb.co/v4m86fP/robot-insiders.png" 
     
     embed = discord.Embed(
         title="ברוכים הבאים לקהילת INSIDERS! 🚀",
-        description="אני הרובוט שלכם, לחצו על הכפתורים למטה כדי להתחיל.",
         color=discord.Color.blue()
     )
     embed.set_image(url=image_url)
