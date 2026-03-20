@@ -17,74 +17,109 @@ def keep_alive():
 # --- Bot Setup ---
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-
-# ה-ID של ערוץ דיווחי המנהלים שלך
 ADMIN_CHANNEL_ID = 1484206445128974479 
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
+# רשימה לשמירת המשתמשים שסיימו את התהליך (נשמר כל עוד הבוט רץ)
+completed_users = set()
+
 class WelcomeView(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
 
-    async def update_message(self, interaction, content, view=None):
-        if view is None: view = self
-        await interaction.response.edit_message(content=content, view=view)
+    async def get_user_stage(self, user_id):
+        # אם המשתמש כבר סיים פעם אחת, הוא מקבל גישה להכל (שלב 4)
+        if user_id in completed_users:
+            return 4
+        return 1
 
-    @discord.ui.button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="p_disclaimer", row=0)
-    async def disclaimer_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        content = (
-            "**אהלן כולם 👋**\n\n"
-            "התוכן נוצר מתוך אהבה לשוק ההון והאמונה שכולנו, בלי יוצא מהכלל, צריכים להשתמש בו למטרה שלשמה הוא נועד - להשקיע את הכסף שלנו כדי לייצר ערך כלכלי.\n\n"
-            "יחד עם זאת - מסחר בשוק ההון כרוך בסיכונים ועשוי לגרום להפסד כספי משמעותי ולכן:\n\n"
-            "• **אין לראות בנאמר בקבוצה / קהילה המלצה או ייעוץ לביצוע השקעה מכל סוג שהוא.**\n\n"
-            "• כל פרסום באשר הוא בקבוצה / קהילה, לרבות בפוסטים, דיונים, תגובות, לייבים, פודקאסטים וכדומה, מצד בעלי הקבוצה / קהילה ו/או מנהליה ו/או חבריה אינו מהווה ייעוץ או שידול להשקעה באשר היא, ואינו מתיימר להוות תחליף לייעוץ ו/או שיווק ו/או ניהול תיקי השקעות המתחשבים בנתונים ובצרכים המיוחדים של אדם מסוים.\n\n"
-            "• הצטרפותך מהווה אישור לכך שידוע לך כי החברה ו/או נציגיה המפעילים את הקבוצה / קהילה - אינם בעלי רישיון לייעוץ ו/או שיווק ו/או ניהול תיקי השקעות ואינם מספקים שירותי ייעוץ ו/או שיווק השקעות כהגדרתם בחוק.\n\n"
-            "• כל משתתפ/ת מסכימ/ה בזאת שלא לבצע כל השקעה הקשורה בפרסומים המופיעים בקבוצה / קהילה ואם החליט/ה לבצע השקעה, הרי ביצע/ה אותה לפי שיקול דעתו/ה הבלעדי."
-        )
-        confirm_view = discord.ui.View(timeout=None)
-        confirm_btn = discord.ui.Button(label="הבנתי ✅", style=discord.ButtonStyle.success, custom_id="p_confirm_disclaimer")
+    def create_buttons(self, stage):
+        self.clear_items()
         
-        async def confirm_callback(itn):
-            admin_channel = self.bot.get_channel(ADMIN_CHANNEL_ID)
-            if admin_channel:
-                await admin_channel.send(f"✅ המשתמש **{itn.user}** (ID: {itn.user.id}) אישר את הדיסקליימר.")
-            await itn.response.edit_message(content="אישרת את הדיסקליימר. ברוך הבא לקהילה! ✅", view=self)
+        # כפתור 1 תמיד מופיע
+        btn1 = discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="p_discl", row=0)
+        btn1.callback = self.disclaimer_callback
+        self.add_item(btn1)
 
-        confirm_btn.callback = confirm_callback
+        # כפתור 2 מופיע אם המשתמש עבר את שלב 1 או סיים הכל
+        if stage >= 2:
+            btn2 = discord.ui.Button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="p_what", row=1)
+            btn2.callback = self.what_is_callback
+            self.add_item(btn2)
+
+        if stage >= 3:
+            btn3 = discord.ui.Button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="p_import", row=2)
+            btn3.callback = self.important_callback
+            self.add_item(btn3)
+
+        if stage >= 4:
+            btn4 = discord.ui.Button(label="📊 רמות יומיות ועדכונים", style=discord.ButtonStyle.primary, custom_id="p_levels", row=3)
+            btn4.callback = self.levels_callback
+            self.add_item(btn4)
+
+    async def disclaimer_callback(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="🚨 דיסקליימר", color=discord.Color.blue(), description=(
+            "**אהלן כולם 👋**\n\n"
+            "התוכן נוצר מתוך אהבה לשוק ההון והאמונה שכולנו צריכים להשתמש בו למטרה שלשמה הוא נועד.\n\n"
+            "• **אין לראות בנאמר המלצה או ייעוץ להשקעה.**\n"
+            "• כל פרסום אינו מהווה תחליף לייעוץ המתחשב בצרכים אישיים.\n"
+            "• המפעילים אינם בעלי רישיון לייעוץ/שיווק השקעות.\n"
+            "• כל החלטת השקעה היא על אחריות המשתמש בלבד."
+        ))
+        
+        # אם המשתמש כבר סיים בעבר, לא צריך כפתור אישור מיוחד
+        if interaction.user.id in completed_users:
+            await interaction.response.edit_message(embed=embed, view=self)
+            return
+
+        confirm_view = discord.ui.View(timeout=None)
+        confirm_btn = discord.ui.Button(label="הבנתי ✅", style=discord.ButtonStyle.success)
+        
+        async def confirm(itn):
+            admin_ch = self.bot.get_channel(ADMIN_CHANNEL_ID)
+            if admin_ch: await admin_ch.send(f"✅ המשתמש **{itn.user}** אישר את הדיסקליימר.")
+            
+            # מעדכנים את התצוגה לשלב 2 עבור המשתמש הזה
+            self.create_buttons(stage=2)
+            await itn.response.edit_message(content="✅ אישרת! עכשיו ניתן להמשיך ל: **מה זה פה?**", embed=None, view=self)
+            
+        confirm_btn.callback = confirm
         confirm_view.add_item(confirm_btn)
-        await interaction.response.edit_message(content=content, view=confirm_view)
+        await interaction.response.edit_message(embed=embed, view=confirm_view)
 
-    @discord.ui.button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="p_whatis", row=1)
-    async def what_is_this(self, interaction: discord.Interaction, button: discord.ui.Button):
-        content = (
+    async def what_is_callback(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), description=(
             "**ברוכים הבאים לקהילת המסחר המובילה בישראל!** 🇮🇱\n\n"
-            "זמנים לשאול כאן כל שאלה שיש לכם על התמצאות בשרת הקהילה שלנו (איפה מעלים ניתוחים של עסקאות, איפה מפרסמים מניות מעניינות ועוד).\n\n"
-            "**לינק הסבר על הקהילה:**\n"
-            "https://youtube.com/your-link-here"
-        )
-        await self.update_message(interaction, content)
+            "זמנים לשאול כאן כל שאלה שיש לכם על התמצאות בשרת (איפה מעלים ניתוחים, מניות מעניינות ועוד).\n\n"
+            "**לינק הסבר על הקהילה:**\n[לחצו כאן לצפייה](https://youtube.com/your-link-here)"
+        ))
+        stage = 4 if interaction.user.id in completed_users else 3
+        self.create_buttons(stage=stage)
+        await interaction.response.edit_message(embed=embed, view=self)
 
-    @discord.ui.button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="p_important", row=2)
-    async def important_info(self, interaction: discord.Interaction, button: discord.ui.Button):
-        content = (
-            "⚠️ **לתשומת לבכם**\n\n"
-            "אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע ו/או שאנחנו נשקיע עבורכם.\n\n"
-            "לצערנו קרו בעבר מקרים בהם נוכלים פתחו משתמשים עם תמונות ושמות דומים לשלנו. "
+    async def important_callback(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="❗ חשוב לדעת", color=discord.Color.red(), description=(
+            "**לתשומת לבכם**\n\n"
+            "אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע עבורכם.\n\n"
             "אם פונים אליכם בפרטי עם הצעה - **מדובר במתחזה** ויש לדווח עליו מיד!"
-        )
-        await self.update_message(interaction, content)
+        ))
+        stage = 4 # בשלב הזה המשתמש מגיע לסוף
+        completed_users.add(interaction.user.id) # שומרים שסיים הכל
+        self.create_buttons(stage=stage)
+        await interaction.response.edit_message(embed=embed, view=self)
 
-    @discord.ui.button(label="📊 רמות יומיות ועדכונים", style=discord.ButtonStyle.primary, custom_id="p_levels", row=3)
-    async def levels_updates(self, interaction: discord.Interaction, button: discord.ui.Button):
-        content = (
+    async def levels_callback(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="📊 רמות יומיות ועדכונים", color=discord.Color.green(), description=(
             "📈 **רמות יומיות ועדכונים שוטפים מהשוק**\n\n"
-            "כאן יפורסמו רמות עבודה, ניתוחים טכניים ועדכונים חמים על מניות ומדדים בזמן אמת."
-        )
-        await self.update_message(interaction, content)
+            "כאן יפורסמו רמות עבודה ועדכונים חמים בזמן אמת.\n\n"
+            "**תהליך ההיכרות הסתיים. כל הכפתורים פתוחים עבורך כעת.**"
+        ))
+        self.create_buttons(stage=4)
+        await interaction.response.edit_message(embed=embed, view=self)
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -96,21 +131,16 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    # מחיקת הודעת ה-!setup של המשתמש כדי למנוע כפילות בערוץ
-    try:
-        await ctx.message.delete()
-    except:
-        pass
+    try: await ctx.message.delete()
+    except: pass
 
     image_url = "https://i.ibb.co/v4m86fP/robot-insiders.png" 
-    
-    embed = discord.Embed(
-        title="ברוכים הבאים לקהילת INSIDERS! 🚀",
-        color=discord.Color.blue()
-    )
+    embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", color=discord.Color.blue())
     embed.set_image(url=image_url)
     
-    await ctx.send(embed=embed, view=WelcomeView(bot))
+    view = WelcomeView(bot)
+    view.create_buttons(stage=1) # מתחילים משלב 1 לכולם בהודעה הראשונית
+    await ctx.send(embed=embed, view=view)
 
 if TOKEN:
     keep_alive()
