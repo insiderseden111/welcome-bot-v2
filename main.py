@@ -44,7 +44,6 @@ class WelcomeView(discord.ui.View):
     def update_buttons(self):
         self.clear_items()
         
-        # שלב 1: דיסקליימר
         btn1 = discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="p_discl", row=0)
         btn1.callback = self.disclaimer_callback
         self.add_item(btn1)
@@ -101,13 +100,15 @@ class WelcomeView(discord.ui.View):
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
     async def levels_callback(self, interaction: discord.Interaction):
+        # פירוט ההטבות המעודכן כולל רמה 25
         levels_text = (
             "בקהילה שלנו, ככל שאתם פעילים יותר – אתם עולים רמות וזוכים בהטבות בלעדיות! "
             "הבוט **Arcane** עוקב אחרי הפעילות שלכם ושולח הודעה בכל פעם שעליתם שלב.\n\n"
             "**🎁 סולם ההטבות שלכם:**\n"
             "🔹 **רמה 10:** קבלת תג (Role) ייחודי בשרת – **Insiders Active**.\n"
-            "🔹 **רמה 15:** מפגש זום אישי (45 דק') עם אחד המנטורים בכל נושא שתבחרו!\n"
+            "🔹 **רמה 15:** מפגש זום אישי (45 דק') עם אחד המנטורים.\n"
             "🔹 **רמה 20:** פתיחת גישה לערוץ ניתוחים מיוחד לפידבק מהמנטורים.\n"
+            "🔹 **רמה 25:** **בונוס מיוחד!** פגישת זום אישית מורחבת (שעה שלמה) עם מנטור.\n"
             "🔹 **רמה 30:** הנחה קבועה של 15% לכל הקורסים והסדנאות **העתידיות**.\n"
             "🔹 **רמה 50:** כניסה לקבוצת ה-VIP של הנבחרת בוואטסאפ!\n\n"
             "**איך עולים רמה?** פשוט משתפים גרפים, **מעלים עסקאות**, שואלים שאלות ועוזרים לאחרים!"
