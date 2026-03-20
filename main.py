@@ -80,6 +80,7 @@ class WelcomeView(discord.ui.View):
             self.update_buttons()
             add_user_to_db(itn.user.id)
             new_embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            # כאן ההודעה נשלחת לערוץ האישורים
             await itn.response.edit_message(content="✅ אישרת את התנאים!", embed=new_embed, view=self)
             
         confirm_btn.callback = confirm
@@ -100,7 +101,6 @@ class WelcomeView(discord.ui.View):
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
     async def levels_callback(self, interaction: discord.Interaction):
-        # פירוט ההטבות המעודכן כולל רמה 25
         levels_text = (
             "בקהילה שלנו, ככל שאתם פעילים יותר – אתם עולים רמות וזוכים בהטבות בלעדיות! "
             "הבוט **Arcane** עוקב אחרי הפעילות שלכם ושולח הודעה בכל פעם שעליתם שלב.\n\n"
@@ -123,6 +123,7 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
+    # הסרתי את שורת ה-purge שגרמה לשגיאה ביומנים
     embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", color=discord.Color.blue())
     embed.set_image(url="https://i.ibb.co/v4m86fP/robot-insiders.png") 
     await ctx.send(embed=embed, view=WelcomeView(bot))
