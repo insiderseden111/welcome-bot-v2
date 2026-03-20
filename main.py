@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- Flask Server ---
+# --- Flask Server (Render Keep-Alive) ---
 app = Flask('')
 @app.route('/')
 def home(): return "I'm alive!"
@@ -19,7 +19,6 @@ def keep_alive():
 load_dotenv()
 url = os.getenv("SUPABASE_URL") 
 key = os.getenv("SUPABASE_KEY")
-# יצירת קליינט רק אם המשתנים קיימים
 supabase = create_client(url, key) if url and key else None
 
 def add_user_to_db(user_id):
@@ -45,7 +44,7 @@ class WelcomeView(discord.ui.View):
     def update_buttons(self):
         self.clear_items()
         
-        # שלב 1: דיסקליימר
+        # שלב 1: דיסקליימר (ללא המילה משפטי)
         btn1 = discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="p_discl", row=0)
         btn1.callback = self.disclaimer_callback
         self.add_item(btn1)
@@ -77,19 +76,19 @@ class WelcomeView(discord.ui.View):
         )
         embed = discord.Embed(title="🚨 דיסקליימר ותנאי שימוש", color=discord.Color.blue(), description=full_text)
         
-        # בניית כפתור האישור
         confirm_view = discord.ui.View(timeout=None)
         confirm_btn = discord.ui.Button(label="הבנתי ואני מאשר ✅", style=discord.ButtonStyle.success)
         
         async def confirm(itn):
             self.stage = 2
             self.update_buttons()
+            add_user_to_db(itn.user.id) # רישום ב-Supabase בעת האישור
+            
             new_embed = discord.Embed(
                 title="🧐 מה זה פה?", 
                 color=discord.Color.blue(),
                 description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ"
             )
-            # עדכון ההודעה והסרת הכפתור הירוק
             await itn.response.edit_message(content="✅ אישרת את התנאים!", embed=new_embed, view=self)
             
         confirm_btn.callback = confirm
@@ -111,11 +110,9 @@ class WelcomeView(discord.ui.View):
             "📢 **לתשומת לבכם**\n\n"
             "🛑 אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע עבורכם.\n\n"
             "⚠️ אם פונים אליכם בפרטי - **מדובר במתחזה!**\n\n"
-            "✅ יש לדווח מיד על המשתמש כדי שנוכל להסיר אותו מהשרת."
+            "✅ יש לדווח מיד על המשתמש."
         )
         embed = discord.Embed(title="❗ חשוב לדעת - כללי בטיחות", color=discord.Color.red(), description=safety_text)
-        # ניסיון רישום במסד הנתונים
-        add_user_to_db(interaction.user.id)
         self.stage = 4
         self.update_buttons()
         await interaction.response.edit_message(content=None, embed=embed, view=self)
@@ -124,20 +121,19 @@ class WelcomeView(discord.ui.View):
         embed = discord.Embed(
             title="📊 עדכוני רמות והטבות", 
             color=discord.Color.gold(), 
-            description="כאן תקבלו ניתוחי שוק, רמות עבודה יומיות והטבות בלעדיות.\n\n**ברוכים הבאים! 🚀**"
+            description="ניתוחי שוק, רמות עבודה יומיות והטבות.\n\n**ברוכים הבאים! 🚀**"
         )
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
 @bot.event
 async def on_ready():
-    bot.add_view(WelcomeView(bot))
     print(f'System: {bot.user} is online.')
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    try: await ctx.message.delete()
-    except: pass
+    # ניקוי הודעות קודמות למניעת כפילויות בערוץ
+    await ctx.channel.purge(limit=5, check=lambda m: m.author == bot.user or m.content == "!setup")
     
     embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", color=discord.Color.blue())
     embed.set_image(url="https://i.ibb.co/v4m86fP/robot-insiders.png") 
