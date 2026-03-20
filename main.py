@@ -60,7 +60,8 @@ class WelcomeView(discord.ui.View):
             self.add_item(btn3)
 
         if self.stage >= 4:
-            btn4 = discord.ui.Button(label="📊 רמות יומיות ועדכונים", style=discord.ButtonStyle.primary, custom_id="p_levels", row=3)
+            # שינוי שם הכפתור לפי בקשתך
+            btn4 = discord.ui.Button(label="📊 עדכוני רמות והטבות", style=discord.ButtonStyle.primary, custom_id="p_levels", row=3)
             btn4.callback = self.levels_callback
             self.add_item(btn4)
 
@@ -79,7 +80,7 @@ class WelcomeView(discord.ui.View):
         async def confirm(itn):
             self.stage = 2
             self.update_buttons()
-            add_user_to_db(itn.user.id)
+            add_user_to_db(itn.user.id) #
             new_embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
             await itn.response.edit_message(content="✅ אישרת את התנאים!", embed=new_embed, view=self)
             
@@ -101,7 +102,19 @@ class WelcomeView(discord.ui.View):
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
     async def levels_callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="📊 רמות יומיות ועדכונים", color=discord.Color.gold(), description="ניתוחי שוק, רמות עבודה יומיות והטבות.\n\n**ברוכים הבאים! 🚀**")
+        # התוכן המפורט והפס הכחול כפי שביקשת
+        levels_text = (
+            "בקהילה שלנו, ככל שאתם פעילים יותר – אתם עולים רמות וזוכים בהטבות בלעדיות! "
+            "הבוט **Arcane** עוקב אחרי הפעילות שלכם ושולח הודעה בכל פעם שעליתם שלב.\n\n"
+            "**🎁 סולם ההטבות שלכם:**\n"
+            "🔹 **רמה 10:** קבלת תג (Role) ייחודי בשרת – **Insiders Active**.\n"
+            "🔹 **רמה 15:** מפגש זום אישי (45 דק') עם אחד המנטורים!\n"
+            "🔹 **רמה 20:** גישה לערוץ ניתוחים מיוחד לפידבק מהמנטורים.\n"
+            "🔹 **רמה 30:** הנחה קבועה של 15% לכל הקורסים והסדנאות.\n"
+            "🔹 **רמה 50:** כניסה לקבוצת ה-VIP של הנבחרת בוואטסאפ!\n\n"
+            "**איך עולים רמה?** פשוט משתפים, שואלים ועוזרים לאחרים!"
+        )
+        embed = discord.Embed(title="📊 עדכוני רמות והטבות", color=discord.Color.blue(), description=levels_text)
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
 @bot.event
@@ -111,7 +124,7 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    # הסרנו את ה-purge הבעייתי כדי למנוע את שגיאת ה-403
+    # שליחת ההודעה המקורית עם הלוגו
     embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", color=discord.Color.blue())
     embed.set_image(url="https://i.ibb.co/v4m86fP/robot-insiders.png") 
     await ctx.send(embed=embed, view=WelcomeView(bot))
