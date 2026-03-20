@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- Flask Server (Render Keep-Alive) ---
+# --- Flask Server ---
 app = Flask('')
 @app.route('/')
 def home(): return "I'm alive!"
@@ -24,7 +24,7 @@ supabase = create_client(url, key) if url and key else None
 def add_user_to_db(user_id):
     if supabase:
         try:
-            supabase.table("completed_users").upsert({"user_id": user_id}).execute()
+            supabase.table("completed_users").upsert({"user_id": str(user_id)}).execute()
         except Exception as e:
             print(f"Database Log: {e}")
 
@@ -49,21 +49,18 @@ class WelcomeView(discord.ui.View):
         btn1.callback = self.disclaimer_callback
         self.add_item(btn1)
 
-        # שלב 2: מה זה פה
         if self.stage >= 2:
             btn2 = discord.ui.Button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="p_what", row=1)
             btn2.callback = self.what_is_callback
             self.add_item(btn2)
 
-        # שלב 3: חשוב לדעת
         if self.stage >= 3:
             btn3 = discord.ui.Button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="p_important", row=2)
             btn3.callback = self.important_callback
             self.add_item(btn3)
 
-        # שלב 4: עדכוני רמות והטבות
         if self.stage >= 4:
-            btn4 = discord.ui.Button(label="📊 עדכוני רמות והטבות", style=discord.ButtonStyle.primary, custom_id="p_levels", row=3)
+            btn4 = discord.ui.Button(label="📊 רמות יומיות ועדכונים", style=discord.ButtonStyle.primary, custom_id="p_levels", row=3)
             btn4.callback = self.levels_callback
             self.add_item(btn4)
 
@@ -82,13 +79,8 @@ class WelcomeView(discord.ui.View):
         async def confirm(itn):
             self.stage = 2
             self.update_buttons()
-            add_user_to_db(itn.user.id) # רישום ב-Supabase בעת האישור
-            
-            new_embed = discord.Embed(
-                title="🧐 מה זה פה?", 
-                color=discord.Color.blue(),
-                description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ"
-            )
+            add_user_to_db(itn.user.id)
+            new_embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
             await itn.response.edit_message(content="✅ אישרת את התנאים!", embed=new_embed, view=self)
             
         confirm_btn.callback = confirm
@@ -96,33 +88,20 @@ class WelcomeView(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=confirm_view)
 
     async def what_is_callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🧐 מה זה פה?", 
-            color=discord.Color.blue(), 
-            description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        )
+        embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
         self.stage = 3
         self.update_buttons()
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
     async def important_callback(self, interaction: discord.Interaction):
-        safety_text = (
-            "📢 **לתשומת לבכם**\n\n"
-            "🛑 אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע עבורכם.\n\n"
-            "⚠️ אם פונים אליכם בפרטי - **מדובר במתחזה!**\n\n"
-            "✅ יש לדווח מיד על המשתמש."
-        )
+        safety_text = "📢 **לתשומת לבכם**\n\n🛑 אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע עבורכם.\n\n⚠️ אם פונים אליכם בפרטי - **מדובר במתחזה!**"
         embed = discord.Embed(title="❗ חשוב לדעת - כללי בטיחות", color=discord.Color.red(), description=safety_text)
         self.stage = 4
         self.update_buttons()
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
     async def levels_callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📊 עדכוני רמות והטבות", 
-            color=discord.Color.gold(), 
-            description="ניתוחי שוק, רמות עבודה יומיות והטבות.\n\n**ברוכים הבאים! 🚀**"
-        )
+        embed = discord.Embed(title="📊 רמות יומיות ועדכונים", color=discord.Color.gold(), description="ניתוחי שוק, רמות עבודה יומיות והטבות.\n\n**ברוכים הבאים! 🚀**")
         await interaction.response.edit_message(content=None, embed=embed, view=self)
 
 @bot.event
@@ -132,9 +111,7 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    # ניקוי הודעות קודמות למניעת כפילויות בערוץ
-    await ctx.channel.purge(limit=5, check=lambda m: m.author == bot.user or m.content == "!setup")
-    
+    # הסרנו את ה-purge הבעייתי כדי למנוע את שגיאת ה-403
     embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", color=discord.Color.blue())
     embed.set_image(url="https://i.ibb.co/v4m86fP/robot-insiders.png") 
     await ctx.send(embed=embed, view=WelcomeView(bot))
