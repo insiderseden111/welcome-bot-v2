@@ -26,7 +26,7 @@ def add_user_to_db(user_id):
         try:
             supabase.table("completed_users").upsert({"user_id": str(user_id)}).execute()
         except Exception as e:
-            print(f"Database Log: {e}")
+            print(f"Database Log Error: {e}")
 
 # --- Bot Setup ---
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -45,26 +45,26 @@ class WelcomeView(discord.ui.View):
     def update_buttons(self):
         self.clear_items()
         
-        # כפתור 1 - תמיד מופיע
+        # כפתור 1 - דיסקליימר (תמיד בשורה 0)
         btn1 = discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="p_discl", row=0)
         btn1.callback = self.disclaimer_callback
         self.add_item(btn1)
 
-        # כפתור 2 - מופיע משלב 2 ומעלה
+        # כפתור 2 - מה זה פה?
         if self.stage >= 2:
             btn2 = discord.ui.Button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="p_what", row=0)
             btn2.callback = self.what_is_callback
             self.add_item(btn2)
 
-        # כפתור 3 - מופיע משלב 3 ומעלה
+        # כפתור 3 - חשוב לדעת
         if self.stage >= 3:
             btn3 = discord.ui.Button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="p_important", row=0)
             btn3.callback = self.important_callback
             self.add_item(btn3)
 
-        # כפתור 4 - מופיע משלב 4 ומעלה
+        # כפתור 4 - עדכוני רמות
         if self.stage >= 4:
-            btn4 = discord.ui.Button(label="📊 עדכוני רמות", style=discord.ButtonStyle.primary, custom_id="p_levels", row=0)
+            btn4 = discord.ui.Button(label="📊 עדכוני רמות והטבות", style=discord.ButtonStyle.primary, custom_id="p_levels", row=0)
             btn4.callback = self.levels_callback
             self.add_item(btn4)
 
@@ -77,23 +77,27 @@ class WelcomeView(discord.ui.View):
         )
         embed = discord.Embed(title="🚨 דיסקליימר ותנאי שימוש", color=discord.Color.blue(), description=full_text)
         
-        # תת-תפריט לאישור הדיסקליימר
         confirm_view = discord.ui.View(timeout=None)
         confirm_btn = discord.ui.Button(label="הבנתי ואני מאשר ✅", style=discord.ButtonStyle.success)
         
-        async def confirm(itn):
+        async def confirm(itn: discord.Interaction):
+            # שימוש ב-defer כדי למנוע קריסה בזמן עדכון ה-DB
+            await itn.response.defer(ephemeral=True)
+            
             self.stage = 2
             self.update_buttons()
             add_user_to_db(itn.user.id)
             
-            # לוג לערוץ
-            log_channel = discord.utils.get(itn.guild.channels, name="כל-מי-שמאשר-את-הדיסקליימר")
+            # שליחת לוג לערוץ (שם מעודכן לפי התמונה שלך)
+            log_channel = discord.utils.get(itn.guild.channels, name="אישורי-דיסקליימר")
             if log_channel:
-                await log_channel.send(f"המשתמש **{itn.user.name}** אישר את הדיסקליימר. ✅")
+                await log_channel.send(f"המשתמש **{itn.user.name}** (ID: {itn.user.id}) אישר את הדיסקליימר. ✅")
             
             new_embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), 
                                     description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
-            await itn.response.edit_message(content="✅ אישרת את התנאים! כעת נפתח לך השלב הבא.", embed=new_embed, view=self)
+            
+            # עדכון ההודעה המקורית עם הכפתורים החדשים בשורה
+            await itn.edit_original_response(content="✅ אישרת את התנאים!", embed=new_embed, view=self)
             
         confirm_btn.callback = confirm
         confirm_view.add_item(confirm_btn)
@@ -102,9 +106,9 @@ class WelcomeView(discord.ui.View):
     async def what_is_callback(self, interaction: discord.Interaction):
         embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), 
                             description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        self.stage = max(self.stage, 3) # מקדם שלב רק אם הוא נמוך מ-3
+        self.stage = max(self.stage, 3)
         self.update_buttons()
-        await interaction.response.edit_message(content="מעולה! בוא נמשיך לדברים החשובים:", embed=embed, view=self)
+        await interaction.response.edit_message(content=None, embed=embed, view=self)
 
     async def important_callback(self, interaction: discord.Interaction):
         safety_text = (
@@ -116,21 +120,19 @@ class WelcomeView(discord.ui.View):
         embed = discord.Embed(title="❗ חשוב לדעת - כללי בטיחות", color=discord.Color.red(), description=safety_text)
         self.stage = max(self.stage, 4)
         self.update_buttons()
-        await interaction.response.edit_message(content="בטיחות מעל הכל! הנה השלב האחרון:", embed=embed, view=self)
+        await interaction.response.edit_message(content=None, embed=embed, view=self)
 
     async def levels_callback(self, interaction: discord.Interaction):
         levels_text = (
-            "בקהילה שלנו, ככל שאתם פעילים יותר – אתם עולים רמות וזוכים בהטבות!\n\n"
-            "**🎁 סולם ההטבות:**\n"
+            "בקהילה שלנו, ככל שאתם פעילים יותר – אתם עולים רמות וזוכים בהטבות בלעדיות!\n\n"
             "🔹 **רמה 10:** תג **Insiders Active**.\n"
-            "🔹 **רמה 15:** מפגש זום קבוצתי.\n"
-            "🔹 **רמה 30:** 15% הנחה לקורסים.\n"
-            "🔹 **רמה 50:** כניסה ל-VIP בוואטסאפ!\n\n"
-            "**איך עולים?** משתפים, שואלים ועוזרים!"
+            "🔹 **רמה 15:** מפגש זום אישי (45 דק').\n"
+            "🔹 **רמה 30:** הנחה קבועה של 15%.\n"
+            "🔹 **רמה 50:** כניסה לקבוצת ה-VIP!\n\n"
+            "**איך עולים רמה?** פשוט משתפים גרפים ועוזרים לאחרים!"
         )
-        embed = discord.Embed(title="📊 עדכוני רמות והטבות", color=discord.Color.gold(), description=levels_text)
-        # כאן הכל כבר פתוח, פשוט מעדכנים את האמבד
-        await interaction.response.edit_message(content="זהו! סיימת את תהליך הקליטה. ברוך הבא!", embed=embed, view=self)
+        embed = discord.Embed(title="📊 עדכוני רמות והטבות", color=discord.Color.blue(), description=levels_text)
+        await interaction.response.edit_message(content=None, embed=embed, view=self)
 
 @bot.event
 async def on_ready():
@@ -139,9 +141,7 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", 
-                        description="כדי להתחיל, אנא קרא ואשר את הדיסקליימר בכפתור למטה.",
-                        color=discord.Color.blue())
+    embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", color=discord.Color.blue())
     embed.set_image(url="https://i.ibb.co/v4m86fP/robot-insiders.png") 
     await ctx.send(embed=embed, view=WelcomeView(bot))
 
