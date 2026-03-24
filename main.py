@@ -4,10 +4,10 @@ import os
 from flask import Flask
 from threading import Thread
 
-# --- Flask Server ---
+# --- Flask Server (למניעת קריסות ב-Render) ---
 app = Flask('')
 @app.route('/')
-def home(): return "Bot is running!"
+def home(): return "Buddy is Live!"
 def run():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
@@ -23,107 +23,144 @@ MAIN_BLUE = 0x0080e8
 intents = discord.Intents.all() 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# --- 1. מערכת הודעות פרטיות (ללא שינוי) ---
+# --- 1. מערכת הודעות פרטיות (EDEN System) ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
     if message.guild is None and message.author.name != TARGET_USERNAME:
         target_admin = discord.utils.get(bot.users, name=TARGET_USERNAME)
         if target_admin:
-            embed = discord.Embed(title="📥 הודעה חדשה", description=message.content, color=MAIN_BLUE)
+            embed = discord.Embed(title="📥 הודעה חדשה ממשתמש", description=message.content, color=MAIN_BLUE)
+            embed.set_author(name=f"{message.author.display_name}", icon_url=message.author.display_avatar.url)
+            embed.set_footer(text=f"לענות לו? העתיקי: !reply {message.author.id} [תוכן ההודעה]")
             await target_admin.send(embed=embed)
     await bot.process_commands(message)
 
-# --- 2. תהליך אונבורדינג זורם (Flow) ---
+@bot.command()
+async def reply(ctx, user_id: int, *, content: str = ""):
+    if ctx.author.name != TARGET_USERNAME: return
+    try:
+        user = await bot.fetch_user(user_id)
+        if user:
+            embed = discord.Embed(title="💬 מענה מצוות INSIDERS", description=content, color=0x004daa)
+            await user.send(embed=embed)
+            await ctx.send(f"✅ נשלח ל-{user.display_name}!")
+    except Exception as e: await ctx.send(f"❌ שגיאה: {e}")
+
+# --- 2. תהליך אונבורדינג מלווה (Onboarding Flow) ---
 class OnboardingFlow(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.stage = 1
 
-    async def update_stage(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+    async def update_view(self, interaction: discord.Interaction):
+        # יצירת רווח שקוף (Invisible Space) בין הטקסט לכפתורים
+        spacer = "\n\u200b\n"
         
-        # שלב 1: דיסקליימר
         if self.stage == 1:
             embed = discord.Embed(
-                title="🚨 שלב 1: דיסקליימר ותנאי שימוש",
+                title="🚨 שלב 1: מתחילים בבטוח",
                 description=(
-                    "לפני שמתחילים, חשוב לנו שתדעו:\n"
-                    "📍 אין לראות בנאמר המלצה או ייעוץ השקעות.\n"
-                    "📍 המפעילים אינם בעלי רישיון לייעוץ.\n\n"
-                    "**מוכנים להמשיך לסיור בקהילה?**"
+                    "היי! אני כאן כדי ללוות אותך בכניסה לקהילה.\n"
+                    "לפני הכל, חשוב שתאשר את הדיסקליימר שלנו:\n\n"
+                    "📍 אין לראות בנאמר המלצה או ייעוץ.\n"
+                    "📍 המפעילים אינם בעלי רישיון לייעוץ השקעות.\n"
+                    f"{spacer}**אחרי שנאשר, נוכל להתקדם לסיור קצר. מוכן?**"
                 ),
                 color=MAIN_BLUE
             )
             self.clear_items()
-            btn = discord.ui.Button(label="כן, הבנתי ואני מאשר ✅", style=discord.ButtonStyle.success, custom_id="flow_1")
-            btn.callback = self.next_step
+            btn = discord.ui.Button(label="כן, הבנתי ואני מאשר ✅", style=discord.ButtonStyle.success, custom_id="f_1")
+            btn.callback = self.process_next
             self.add_item(btn)
 
-        # שלב 2: מה זה פה?
         elif self.stage == 2:
             embed = discord.Embed(
-                title="🧐 שלב 2: מה זה פה בעצם?",
+                title="🧐 שלב 2: מה מחכה לך כאן?",
                 description=(
-                    "ברוכים הבאים ל-INSIDERS! המקום שלכם ללמוד ולהתפתח בשוק ההון.\n\n"
-                    "📺 **צפו בסרטון ההסבר הקצר שלנו:**\n"
-                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n"
-                    "**יאללה, שנעבור לכללי הבטיחות החשובים?**"
+                    "מעולה! ב-INSIDERS אנחנו משלבים ידע, ניתוחים וקהילה תומכת.\n\n"
+                    "צירפנו לך סרטון קצר שמסביר איך להפיק את המקסימום מהשרת:\n"
+                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ\n"
+                    f"{spacer}**יאללה, שנראה איך שומרים עליך ממתחזים?**"
                 ),
                 color=MAIN_BLUE
             )
             self.clear_items()
-            btn = discord.ui.Button(label="כן, חשוב לדעת! 🛡️", style=discord.ButtonStyle.primary, custom_id="flow_2")
-            btn.callback = self.next_step
+            btn = discord.ui.Button(label="חשוב מאוד, בוא נמשיך 🛡️", style=discord.ButtonStyle.primary, custom_id="f_2")
+            btn.callback = self.process_next
             self.add_item(btn)
 
-        # שלב 3: בטיחות
         elif self.stage == 3:
             embed = discord.Embed(
-                title="❗ שלב 3: בטיחות מעל הכל",
+                title="🛡️ שלב 3: בטיחות בקהילה",
                 description=(
-                    "🛑 **שימו לב:** אנחנו לעולם לא נפנה אליכם בפרטי להשקעות.\n"
-                    "⚠️ אם פנו אליכם - זה מתחזה! דווחו לנו מיד.\n\n"
-                    "**נעבור לחלק המעניין? הטבות ורמות! 🎁**"
+                    "חשוב לנו שתדע: הצוות שלנו **לעולם לא יפנה אליך בפרטי** כדי להציע השקעות.\n\n"
+                    "⚠️ אם מישהו פנה אליך - זה כנראה מתחזה.\n"
+                    "📢 תמיד אפשר לדווח לנו בפרטי של הבוט.\n"
+                    f"{spacer}**מוכן לחלק הכי שווה? רמות והטבות!**"
                 ),
                 color=discord.Color.red()
             )
             self.clear_items()
-            btn = discord.ui.Button(label="ברור, תראה לי הטבות! 📊", style=discord.ButtonStyle.primary, custom_id="flow_3")
-            btn.callback = self.next_step
+            btn = discord.ui.Button(label="ברור! מה ההטבות? 🎁", style=discord.ButtonStyle.primary, custom_id="f_3")
+            btn.callback = self.process_next
             self.add_item(btn)
 
-        # שלב 4: רמות (סוף)
         elif self.stage == 4:
-            levels_text = (
-                "🔹 **רמה 15:** מפגש זום אישי (45 דק').\n"
-                "🔹 **רמה 30:** 15% הנחה לקורסים.\n"
-                "🔹 **רמה 50:** כניסה ל-VIP!\n\n"
-                "**זהו, סיימנו! עכשיו הכל פתוח בפניך.**"
+            levels = (
+                "**🎁 סולם ההטבות המלא שלנו:**\n"
+                "🔹 **רמה 10:** תג **Insiders Active**.\n"
+                "🔹 **רמה 15:** מפגש זום אישי (45 דק') עם מנטור.\n"
+                "🔹 **רמה 20:** פתיחת גישה לערוץ ניתוחים מיוחד.\n"
+                "🔹 **רמה 25:** פגישת זום אישית מורחבת (שעה שלמה).\n"
+                "🔹 **רמה 30:** הנחה של 15% לכל הקורסים והסדנאות.\n"
+                "🔹 **רמה 50:** כניסה לקבוצת ה-VIP של הנבחרת!\n\n"
+                f"{spacer}**זהו, סיימנו את תהליך הקליטה! שלחנו לך הודעה בפרטי עם המדריך.**"
             )
-            embed = discord.Embed(title="📊 שלב אחרון: הטבות ורמות", description=levels_text, color=MAIN_BLUE)
+            embed = discord.Embed(title="📊 שלב אחרון: רמות והטבות", description=levels, color=MAIN_BLUE)
             self.clear_items()
-            # בסוף משאירים את הכפתורים פתוחים לניווט חופשי
-            self.add_item(discord.ui.Button(label="דיסקליימר", style=discord.ButtonStyle.secondary, custom_id="nav_1"))
-            self.add_item(discord.ui.Button(label="מה זה פה?", style=discord.ButtonStyle.secondary, custom_id="nav_2"))
-            self.add_item(discord.ui.Button(label="בטיחות", style=discord.ButtonStyle.secondary, custom_id="nav_3"))
-            self.add_item(discord.ui.Button(label="הטבות", style=discord.ButtonStyle.primary, custom_id="nav_4", disabled=True))
+            # סיום פתוח לניווט חוזר
+            self.add_item(discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.secondary, custom_id="n_1", row=0))
+            self.add_item(discord.ui.Button(label="🧐 מה זה פה?", style=discord.ButtonStyle.secondary, custom_id="n_2", row=0))
+            self.add_item(discord.ui.Button(label="🛡️ בטיחות", style=discord.ButtonStyle.secondary, custom_id="n_3", row=0))
+            self.add_item(discord.ui.Button(label="📊 הטבות", style=discord.ButtonStyle.primary, custom_id="n_4", disabled=True, row=0))
+            
+            # שליחת הודעה פרטית אישית בסיום
+            try:
+                dm_text = (
+                    "**ברוך הבא למשפחת INSIDERS!** 🚀\n"
+                    f"היי {interaction.user.display_name}, איזה כיף שסיימת את תהליך הקליטה!\n\n"
+                    "רצינו שתדע שאנחנו ממש שמחים שאתה איתנו בקהילה. המטרה שלנו היא לצמוח יחד, "
+                    "ואנחנו כאן לכל שאלה, עזרה או התייעצות שתצטרך. אל תתבייש לפנות אלינו! "
+                    "אנחנו כאן לכל דבר בסגנון הזה.\n\n"
+                    "צא לדרך, תהיה פעיל, ותתחיל לכבוש את היעדים שלך."
+                )
+                dm_embed = discord.Embed(description=dm_text, color=MAIN_BLUE)
+                await interaction.user.send(embed=dm_embed)
+            except: pass
 
-        # הוספת "שורת רווח" בתחתית כל Embed
         embed.set_footer(text="━━━━━━━━━━━━━━━━━━━━━━\nINSIDERS Community")
-        
         await interaction.edit_original_response(embed=embed, view=self)
 
-    async def next_step(self, interaction: discord.Interaction):
+    async def process_next(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         self.stage += 1
-        await self.update_stage(interaction)
+        await self.update_view(interaction)
+
+@bot.event
+async def on_ready(): print(f'System: {bot.user} is online!')
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
+    try: await ctx.message.delete()
+    except: pass
     view = OnboardingFlow()
-    # התחלה משלב 1
-    embed = discord.Embed(title="ברוכים הבאים ל-INSIDERS! 🚀", description="בואו נתחיל בתהליך קצר שיכניס אתכם לעניינים.\n\n**לחצו על הכפתור למטה כדי להתחיל.**", color=MAIN_BLUE)
+    embed = discord.Embed(
+        title="ברוכים הבאים ל-INSIDERS! 🚀", 
+        description="היי! אני הבוט של אדן. אני כאן כדי לעזור לך להיכנס לעניינים בקלות.\n\n**נצא לדרך?**", 
+        color=MAIN_BLUE
+    )
     embed.set_image(url="https://i.ibb.co/v4m86fP/robot-insiders.png")
     await ctx.send(embed=embed, view=view)
 
