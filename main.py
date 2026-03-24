@@ -30,11 +30,43 @@ def add_user_to_db(user_id):
 
 # --- Bot Setup ---
 TOKEN = os.getenv('DISCORD_TOKEN')
+# חשוב: לוודא שכל ה-Intents דלוקים ב-Discord Developer Portal
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True 
+intents.messages = True
+intents.dm_messages = True # מאפשר לבוט לקרוא הודעות בפרטי
+
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# --- Forwarding Logic ---
+TARGET_USERNAME = "eden_insiders_49810" # שם המשתמש שלך
+
+@bot.event
+async def on_message(message):
+    # אם ההודעה נשלחה בפרטי (DM) ולא על ידי בוט
+    if message.guild is None and not message.author.bot:
+        # מחפש אותך בשרתים שהבוט נמצא בהם
+        target_user = discord.utils.get(bot.users, name=TARGET_USERNAME)
+        
+        if target_user:
+            try:
+                embed = discord.Embed(
+                    title="📩 הודעה חדשה ממשתמש!",
+                    description=message.content,
+                    color=discord.Color.purple()
+                )
+                embed.set_author(name=f"{message.author.name} (ID: {message.author.id})", icon_url=message.author.display_avatar.url)
+                await target_user.send(embed=embed)
+            except Exception as e:
+                print(f"Error forwarding DM: {e}")
+        else:
+            print(f"Could not find user {TARGET_USERNAME} to forward message.")
+
+    # מאפשר לפקודות רגילות (כמו !setup) להמשיך לעבוד
+    await bot.process_commands(message)
+
+# --- Welcome View Class ---
 class WelcomeView(discord.ui.View):
     def __init__(self, bot, stage=1):
         super().__init__(timeout=None)
@@ -45,24 +77,20 @@ class WelcomeView(discord.ui.View):
     def create_buttons(self):
         self.clear_items()
         
-        # כפתור 1 - דיסקליימר
         btn1 = discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="onboard_discl", row=0)
         btn1.callback = self.disclaimer_callback
         self.add_item(btn1)
 
-        # כפתור 2 - מה זה פה?
         if self.stage >= 2:
             btn2 = discord.ui.Button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="onboard_what", row=0)
             btn2.callback = self.what_is_callback
             self.add_item(btn2)
 
-        # כפתור 3 - חשוב לדעת
         if self.stage >= 3:
             btn3 = discord.ui.Button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="onboard_important", row=0)
             btn3.callback = self.important_callback
             self.add_item(btn3)
 
-        # כפתור 4 - עדכוני רמות
         if self.stage >= 4:
             btn4 = discord.ui.Button(label="📊 עדכוני רמות והטבות", style=discord.ButtonStyle.primary, custom_id="onboard_levels", row=0)
             btn4.callback = self.levels_callback
@@ -90,11 +118,7 @@ class WelcomeView(discord.ui.View):
             if log_channel:
                 await log_channel.send(f"המשתמש **{itn.user.name}** אישר את הדיסקליימר. ✅")
             
-            new_embed = discord.Embed(
-                title="🧐 מה זה פה?", 
-                color=discord.Color.blue(), 
-                description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ"
-            )
+            new_embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), description="ברוכים הבאים ל-INSIDERS!\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
             await itn.edit_original_response(content="✅ אישרת את התנאים!", embed=new_embed, view=self)
 
         confirm_btn.callback = confirm_action
@@ -102,71 +126,63 @@ class WelcomeView(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=confirm_view)
 
     async def what_is_callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🧐 מה זה פה?", 
-            color=discord.Color.blue(), 
-            description="ברוכים הבאים ל-INSIDERS! כאן אנחנו לומדים וצומחים יחד.\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        )
+        embed = discord.Embed(title="🧐 מה זה פה?", color=discord.Color.blue(), description="ברוכים הבאים ל-INSIDERS!\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
         self.stage = max(self.stage, 3)
         self.create_buttons()
-        await interaction.response.edit_message(content="מעולה! בוא נמשיך לדברים החשובים:", embed=embed, view=self)
+        await interaction.response.edit_message(content="מעולה! בוא נמשיך:", embed=embed, view=self)
 
     async def important_callback(self, interaction: discord.Interaction):
         safety_text = (
-            "📢 **לתשומת לבכם**\n\n"
-            "🛑 אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע עבורכם.\n\n"
-            "⚠️ אם פונים אליכם בפרטי - **מדובר במתחזה!**\n\n"
-            "📢 **ויש לדווח על המשתמש שפנה אליכם ועל ההודעה.**"
+            "📢 **לתשומת לבכם**\n\n🛑 אנחנו לעולם לא נפנה אליכם בפרטי ונציע לכם להשקיע עבורכם.\n\n"
+            "⚠️ אם פונים אליכם בפרטי - **מדובר במתחזה!**\n\n📢 **ויש לדווח על המשתמש שפנה אליכם ועל ההודעה.**"
         )
         embed = discord.Embed(title="❗ חשוב לדעת - כללי בטיחות", color=discord.Color.red(), description=safety_text)
         self.stage = max(self.stage, 4)
         self.create_buttons()
-        await interaction.response.edit_message(content="בטיחות מעל הכל! הנה השלב האחרון:", embed=embed, view=self)
+        await interaction.response.edit_message(content="בטיחות מעל הכל!", embed=embed, view=self)
 
     async def levels_callback(self, interaction: discord.Interaction):
         levels_text = (
-            "בקהילה שלנו, ככל שאתם פעילים יותר – אתם עולים רמות וזוכים בהטבות בלעדיות!\n\n"
-            "**🎁 סולם ההטבות שלכם:**\n"
+            "בקהילה שלנו, ככל שאתם פעילים יותר – אתם עולים רמות וזוכים בהטבות!\n\n"
             "🔹 **רמה 10:** תג **Insiders Active**.\n"
             "🔹 **רמה 15:** מפגש זום אישי (45 דק').\n"
-            "🔹 **רמה 30:** הנחה של 15% לכל הקורסים.\n"
-            "🔹 **רמה 50:** כניסה לקבוצת ה-VIP!\n\n"
-            "**איך עולים רמה?** פשוט משתפים גרפים, מעלים עסקאות ועוזרים לאחרים!"
+            "🔹 **רמה 20:** גישה לערוץ ניתוחים.\n"
+            "🔹 **רמה 25:** פגישת זום מורחבת (שעה).\n"
+            "🔹 **רמה 30:** הנחה של 15% לקורסים.\n"
+            "🔹 **רמה 50:** כניסה ל-VIP!\n\n"
+            "**איך עולים?** משתפים גרפים ועוזרים לאחרים!"
         )
         embed = discord.Embed(title="📊 עדכוני רמות והטבות", color=discord.Color.blue(), description=levels_text)
         
-        # --- שליחת הודעה פרטית (DM) מושקעת ---
         try:
             dm_embed = discord.Embed(
                 title="ברוך הבא למשפחת INSIDERS! 🚀",
                 description=(
                     f"היי {interaction.user.display_name}, איזה כיף שסיימת את תהליך הקליטה!\n\n"
-                    "רצינו שתדע שאנחנו ממש שמחים שאתה איתנו בקהילה. "
-                    "המטרה שלנו היא לצמוח יחד, ואנחנו כאן לכל שאלה, עזרה או התייעצות שתצטרך.\n\n"
-                    "**אל תתבייש לפנות אלינו!** אנחנו כאן לכל דבר בסגנון הזה.\n\n"
-                    "צא לדרך, תהיה פעיל, ותתחיל לכבוש את היעדים שלך. 📈"
+                    "אנחנו כאן לכל שאלה, עזרה או התייעצות שתצטרך. **אתה מוזמן להשיב להודעה הזו בכל זמן!**\n\n"
+                    "צא לדרך ובהצלחה! 📈"
                 ),
                 color=discord.Color.green()
             )
             dm_embed.set_footer(text="צוות INSIDERS")
             await interaction.user.send(embed=dm_embed)
-        except Exception as e:
-            print(f"Could not send DM to {interaction.user.name}: {e}")
+            extra = "שלחנו לך הודעה בפרטי! 📥"
+        except:
+            extra = "סיימת את התהליך!"
 
-        await interaction.response.edit_message(content="סיימת את תהליך הקליטה! שלחנו לך גם הודעה אישית בפרטי. 📥", embed=embed, view=self)
+        await interaction.response.edit_message(content=extra, embed=embed, view=self)
 
+# --- Commands ---
 @bot.event
 async def on_ready():
-    print(f'System: {bot.user} is online and ready!')
+    print(f'System: {bot.user} is online!')
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    embed = discord.Embed(
-        title="ברוכים הבאים לקהילת INSIDERS! 🚀", 
-        description="כדי להתחיל את תהליך הקליטה ולקבל גישה מלאה, לחצו על הכפתור למטה.",
-        color=discord.Color.blue()
-    )
+    try: await ctx.message.delete()
+    except: pass
+    embed = discord.Embed(title="ברוכים הבאים לקהילת INSIDERS! 🚀", color=discord.Color.blue())
     embed.set_image(url="https://i.ibb.co/v4m86fP/robot-insiders.png") 
     await ctx.send(embed=embed, view=WelcomeView(bot))
 
