@@ -6,11 +6,18 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- Flask Server (Keep Alive) ---
+# --- Flask Server (התאמה ל-Render) ---
 app = Flask('')
+
 @app.route('/')
-def home(): return "I'm alive!"
-def run(): app.run(host='0.0.0.0', port=8080)
+def home():
+    return "I'm alive!"
+
+def run():
+    # Render מחייב שימוש בפורט שהם מספקים במשתנה סביבה PORT
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
 def keep_alive():
     t = Thread(target=run)
     t.start()
@@ -30,7 +37,7 @@ def add_user_to_db(user_id):
 # --- Bot Configuration ---
 TOKEN = os.getenv('DISCORD_TOKEN')
 TARGET_USERNAME = "eden_insiders_49810" # המשתמש שיקבל את ההודעות
-MAIN_BLUE = 0x0080e8 # כחול ראשי שביקשת
+MAIN_BLUE = 0x0080e8 # הכחול הראשי שלך
 
 intents = discord.Intents.all() 
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -41,15 +48,11 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def on_message(message):
     if message.author == bot.user: return
     
-    # אם מישהו שולח הודעה לבוט בפרטי והוא לא את
+    # הודעות פרטיות למנהלת
     if message.guild is None and message.author.name != TARGET_USERNAME:
         target_admin = discord.utils.get(bot.users, name=TARGET_USERNAME)
         if target_admin:
-            embed = discord.Embed(
-                title="📥 הודעה חדשה ממשתמש", 
-                description=message.content, 
-                color=MAIN_BLUE
-            )
+            embed = discord.Embed(title="📥 הודעה חדשה ממשתמש", description=message.content, color=MAIN_BLUE)
             embed.set_author(name=f"{message.author.display_name}", icon_url=message.author.display_avatar.url)
             embed.set_footer(text=f"לענות לו? תעתיקי: !reply {message.author.id} ")
             
@@ -64,16 +67,12 @@ async def reply(ctx, user_id: int, *, content: str = ""):
     try:
         user = await bot.fetch_user(user_id)
         if user:
-            embed = discord.Embed(
-                title="💬 מענה מצוות INSIDERS", 
-                description=content if content else "צירפנו קובץ עבורך:", 
-                color=0x004daa # כחול משני
-            )
+            embed = discord.Embed(title="💬 מענה מצוות INSIDERS", description=content, color=0x004daa)
             embed.set_footer(text="תוכל להשיב להודעה זו כדי להמשיך בשיחה.")
             file = await ctx.message.attachments[0].to_file() if ctx.message.attachments else None
             await user.send(embed=embed, file=file)
-            await ctx.send(f"✅ התשובה נשלחה בהצלחה ל-{user.display_name}!")
-    except Exception as e: await ctx.send(f"❌ שגיאה בשליחה: {e}")
+            await ctx.send(f"✅ התשובה נשלחה ל-{user.display_name}!")
+    except Exception as e: await ctx.send(f"❌ שגיאה: {e}")
 
 # --- 2. תהליך הקליטה (Welcome View) ---
 
@@ -117,7 +116,7 @@ class WelcomeView(discord.ui.View):
             self.stage = 2; self.create_buttons(); add_user_to_db(itn.user.id)
             log = discord.utils.get(itn.guild.channels, name="אישורי-דיסקליימר")
             if log: await log.send(f"✅ **{itn.user.name}** אישר את התנאים.")
-            await itn.edit_original_response(content="✅ אישרת את התנאים!", view=self)
+            await itn.edit_original_response(content="✅ אישרת!", view=self)
             
         btn.callback = confirm
         view.add_item(btn)
@@ -127,12 +126,12 @@ class WelcomeView(discord.ui.View):
         embed = discord.Embed(title="🧐 מה זה פה?", color=MAIN_BLUE, 
                             description="ברוכים הבאים ל-INSIDERS!\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
         self.stage = max(self.stage, 3); self.create_buttons()
-        await itn.response.edit_message(content="מעולה! בוא נמשיך:", embed=embed, view=self)
+        await itn.response.edit_message(content="בוא נמשיך:", embed=embed, view=self)
 
     async def important_callback(self, itn):
         txt = ("🛑 אנחנו לעולם לא נפנה אליכם בפרטי ונציע להשקיע עבורכם.\n"
                "⚠️ אם פונים אליכם בפרטי - **מדובר במתחזה!**\n"
-               "📢 ויש לדווח על המשתמש שפנה אליכם מיידית.")
+               "📢 יש לדווח על המשתמש שפנה אליכם מיידית.")
         embed = discord.Embed(title="❗ חשוב לדעת - כללי בטיחות", color=discord.Color.red(), description=txt)
         self.stage = max(self.stage, 4); self.create_buttons()
         await itn.response.edit_message(content="בטיחות מעל הכל!", embed=embed, view=self)
@@ -154,12 +153,13 @@ class WelcomeView(discord.ui.View):
                              description="שמחים שאתה איתנו! **מוזמן להשיב להודעה זו בכל שאלה.**")
             await itn.user.send(embed=dm)
         except: pass
-        await itn.response.edit_message(content="סיימת את תהליך הקליטה! שלחנו לך הודעה בפרטי 📥", embed=embed, view=self)
+        await itn.response.edit_message(content="סיימת את תהליך הקליטה! 📥", embed=embed, view=self)
 
-# --- 3. Bot Startup ---
+# --- 3. Startup ---
 
 @bot.event
-async def on_ready(): print(f'System: {bot.user} is online!')
+async def on_ready():
+    print(f'System: {bot.user} is online and connected!')
 
 @bot.command()
 @commands.has_permissions(administrator=True)
