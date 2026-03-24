@@ -6,15 +6,14 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- Flask Server (התאמה ל-Render) ---
+# --- Flask Server (Render Fix) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "I'm alive!"
+    return "Bot is running!"
 
 def run():
-    # Render מחייב שימוש בפורט שהם מספקים במשתנה סביבה PORT
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -22,7 +21,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- Supabase Setup ---
+# --- Supabase ---
 load_dotenv()
 url = os.getenv("SUPABASE_URL") 
 key = os.getenv("SUPABASE_KEY")
@@ -34,21 +33,20 @@ def add_user_to_db(user_id):
             supabase.table("completed_users").upsert({"user_id": str(user_id)}).execute()
         except Exception as e: print(f"DB Error: {e}")
 
-# --- Bot Configuration ---
+# --- Bot Config ---
 TOKEN = os.getenv('DISCORD_TOKEN')
-TARGET_USERNAME = "eden_insiders_49810" # המשתמש שיקבל את ההודעות
-MAIN_BLUE = 0x0080e8 # הכחול הראשי שלך
+TARGET_USERNAME = "eden_insiders_49810" 
+MAIN_BLUE = 0x0080e8 
 
 intents = discord.Intents.all() 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# --- 1. מערכת הודעות פרטיות (Forwarding & Reply) ---
+# --- 1. מערכת הודעות פרטיות ---
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
     
-    # הודעות פרטיות למנהלת
     if message.guild is None and message.author.name != TARGET_USERNAME:
         target_admin = discord.utils.get(bot.users, name=TARGET_USERNAME)
         if target_admin:
@@ -84,19 +82,24 @@ class WelcomeView(discord.ui.View):
 
     def create_buttons(self):
         self.clear_items()
-        btn1 = discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="btn_discl", row=0)
+        
+        # כפתור דיסקליימר תמיד מופיע
+        btn1 = discord.ui.Button(label="🚨 דיסקליימר", style=discord.ButtonStyle.primary, custom_id="v3_discl", row=0)
         btn1.callback = self.disclaimer_callback
         self.add_item(btn1)
+
         if self.stage >= 2:
-            btn2 = discord.ui.Button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="btn_what", row=0)
+            btn2 = discord.ui.Button(label="🧐 מה זה פה?", style=discord.ButtonStyle.primary, custom_id="v3_what", row=0)
             btn2.callback = self.what_is_callback
             self.add_item(btn2)
+
         if self.stage >= 3:
-            btn3 = discord.ui.Button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="btn_imp", row=0)
+            btn3 = discord.ui.Button(label="❗ חשוב לדעת", style=discord.ButtonStyle.primary, custom_id="v3_imp", row=0)
             btn3.callback = self.important_callback
             self.add_item(btn3)
+
         if self.stage >= 4:
-            btn4 = discord.ui.Button(label="📊 עדכוני רמות והטבות", style=discord.ButtonStyle.primary, custom_id="btn_lev", row=0)
+            btn4 = discord.ui.Button(label="📊 עדכוני רמות והטבות", style=discord.ButtonStyle.primary, custom_id="v3_lev", row=0)
             btn4.callback = self.levels_callback
             self.add_item(btn4)
 
@@ -108,30 +111,30 @@ class WelcomeView(discord.ui.View):
             "📍 כל השקעה שתבוצע היא על פי שיקול דעתכם הבלעדי."
         )
         embed = discord.Embed(title="🚨 דיסקליימר ותנאי שימוש", color=MAIN_BLUE, description=full_text)
-        view = discord.ui.View(timeout=None)
-        btn = discord.ui.Button(label="הבנתי ואני מאשר ✅", style=discord.ButtonStyle.success, custom_id="confirm_all")
+        confirm_view = discord.ui.View(timeout=None)
+        btn = discord.ui.Button(label="הבנתי ואני מאשר ✅", style=discord.ButtonStyle.success, custom_id="v3_confirm")
         
-        async def confirm(itn):
+        async def confirm_action(itn):
             await itn.response.defer()
             self.stage = 2; self.create_buttons(); add_user_to_db(itn.user.id)
             log = discord.utils.get(itn.guild.channels, name="אישורי-דיסקליימר")
             if log: await log.send(f"✅ **{itn.user.name}** אישר את התנאים.")
-            await itn.edit_original_response(content="✅ אישרת!", view=self)
-            
-        btn.callback = confirm
-        view.add_item(btn)
-        await interaction.response.edit_message(embed=embed, view=view)
+            await itn.edit_original_response(content="✅ אישרת את התנאים!", view=self)
+        
+        btn.callback = confirm_action
+        confirm_view.add_item(btn)
+        await interaction.response.edit_message(embed=embed, view=confirm_view)
 
     async def what_is_callback(self, itn):
         embed = discord.Embed(title="🧐 מה זה פה?", color=MAIN_BLUE, 
                             description="ברוכים הבאים ל-INSIDERS!\n\n**סרטון הסבר:**\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
         self.stage = max(self.stage, 3); self.create_buttons()
-        await itn.response.edit_message(content="בוא נמשיך:", embed=embed, view=self)
+        await itn.response.edit_message(content="מעולה! בוא נמשיך:", embed=embed, view=self)
 
     async def important_callback(self, itn):
         txt = ("🛑 אנחנו לעולם לא נפנה אליכם בפרטי ונציע להשקיע עבורכם.\n"
                "⚠️ אם פונים אליכם בפרטי - **מדובר במתחזה!**\n"
-               "📢 יש לדווח על המשתמש שפנה אליכם מיידית.")
+               "📢 ויש לדווח על המשתמש שפנה אליכם מיידית.")
         embed = discord.Embed(title="❗ חשוב לדעת - כללי בטיחות", color=discord.Color.red(), description=txt)
         self.stage = max(self.stage, 4); self.create_buttons()
         await itn.response.edit_message(content="בטיחות מעל הכל!", embed=embed, view=self)
@@ -159,7 +162,7 @@ class WelcomeView(discord.ui.View):
 
 @bot.event
 async def on_ready():
-    print(f'System: {bot.user} is online and connected!')
+    print(f'System: {bot.user} is online!')
 
 @bot.command()
 @commands.has_permissions(administrator=True)
